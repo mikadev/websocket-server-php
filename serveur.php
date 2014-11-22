@@ -7,12 +7,11 @@ $port = 1577;
 
 $m_sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 socket_set_option($m_sock, SOL_SOCKET, SO_REUSEADDR, 1);
-$msg = "Bienvenue";
 $cls = array();
 
 socket_bind($m_sock, $adr, $port);
 socket_listen($m_sock, 5);
-echo "Lancement du serveur...\n\n";
+echo "Starting server...\n\n";
 
 do{
     usleep(500);
@@ -43,7 +42,7 @@ do{
         array_push($cls, $msgsock);
         var_dump($cls);
  
-        echo "Connexion etablie...\n\n";
+        echo "Connected...\n\n";
      
         while(($buf = @socket_read($msgsock, 2048, PHP_NORMAL_READ))) {
         // echo "socket_read() a échoué : raison : " . socket_strerror(socket_last_error($msgsock)) . "\n";
