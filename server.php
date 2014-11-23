@@ -1,13 +1,13 @@
 <?php
 error_reporting(E_ALL);
 set_time_limit(0);
-$adr = gethostbyname(trim(`hostname`));
-echo $adr;
+$adr = "127.0.0.1";//gethostbyname(trim(`hostname`));
+echo $adr."\n\n";
 $port = 1577;
 
 $m_sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 socket_set_option($m_sock, SOL_SOCKET, SO_REUSEADDR, 1);
-$cls = array();
+$cls = array($m_sock);
 
 socket_bind($m_sock, $adr, $port);
 socket_listen($m_sock, 5);
@@ -15,68 +15,45 @@ echo "Starting server...\n\n";
 
 do{
     usleep(500);
-    if (count($cls) > 1){
-        while(1){
-            usleep(1500);
-           $changed = $cls;
-           $val = @socket_select($changed,$write=NULL,$except=NULL,5);
-            /*   var_dump($val);
-           var_dump($changed);*/
-            foreach ($changed as $sock) {
-                $bytes = socket_recv($sock, $data, 2048, null);
-                $d = unmask($data);
-            } 
-            foreach ($cls as $socket) {
-                 if($val > 0){
-                    if(!socket_write($socket,(encode($d)) ))
-                    exit;
-                }
-            } 
-        }
-    }
-    else   
-    {
-        echo "wait...\n\n";
-        $msgsock = socket_accept($m_sock);
+    $changed = $cls;
+    $val = @socket_select($changed,$write=NULL,$except=NULL,0);
+    foreach ($changed as $sock) {
+        if($sock === $m_sock){
+            echo "wait...\n\n";
+            $msgsock = socket_accept($m_sock);
+            array_push($cls, $msgsock);
+            echo "Connected...\n\n";
+            socket_recv($msgsock, $hds, 2048, MSG_WAITALL);
 
-        array_push($cls, $msgsock);
-        var_dump($cls);
- 
-        echo "Connected...\n\n";
-     
-        while(($buf = @socket_read($msgsock, 2048, PHP_NORMAL_READ))) {
-        // echo "socket_read() a échoué : raison : " . socket_strerror(socket_last_error($msgsock)) . "\n";
-        //  break 2;
-            if (!$buf = trim($buf)) {
-            continue;
-            }
-            if ($buf == 'quit') {
-            // break;
-            }
-            if ($buf == 'shutdown') {
-            //socket_close($msgsock);
-            //break 2;
-            }
-            if(preg_match("/Sec-WebSocket-Key: (.*)/",$buf,$match)){ 
+            if(preg_match("/Sec-WebSocket-Key: (.*)\r\n/",$hds,$matchs)){
                 echo "do handshake...\n\n";
-                $one = false;
-                $key = $match[1] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+                $key = $matchs[1] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
                 $key =  base64_encode(sha1($key, true)); 
-                //echo trim($match[1])."258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
                 $headers = "HTTP/1.1 101 Switching Protocols\r\n".
                 "Upgrade: websocket\r\n".
                 "Connection: Upgrade\r\n".
                 "Sec-WebSocket-Accept: $key".
                 "\r\n\r\n";
-                //echo $headers;
-                socket_write($msgsock,($headers));
+                socket_write($msgsock, $headers);
                 echo "handshak done...\n";
-                $buf = "";
-                break;
-            } 
+            }
+        }else{
+            $bytes = socket_recv($sock, $data, 2048, null);
+            $d = unmask($data);
+            foreach ($cls as $socket) {
+                if($socket != $m_sock && $val > 0){
+                    try{
+                       socket_write($socket,(encode($d))); 
+                    }catch(Exception $e){
+                        unset($cls[$socket]);
+                        socket_close($cls[$socket]);
+                    }
+                }
+            }
         }
-    }
-//socket_close($msgsock);
+    } 
+    
     
 }while(1);
 socket_close($m_sock);

@@ -3,10 +3,10 @@ window.onload = function(){
 
 
 	try{
-		var ip = "192.168.1.12";
+		var ip = "127.0.0.1";
 		var socket = new WebSocket("ws://"+ip+":1577");
 	}catch(e){
-
+		console.error("error try to restart the server");
 	}
 
 	var el = document.getElementsByTagName("button");
@@ -25,7 +25,7 @@ window.onload = function(){
 		document.title = "! Closed !";
 	}
 	socket.onmessage = function(e) {
-		dis.value = dis.value + "\n" + e.data;
+		dis.value = dis.value + e.data + "\n";
 		dis.scrollTop = dis.scrollHeight;
 	}
 }
